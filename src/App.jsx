@@ -1,7 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, collection, query, serverTimestamp, orderBy } from 'firebase/firestore';
+import { 
+  onAuthStateChanged, 
+  signInAnonymously, 
+  signInWithCustomToken 
+} from "firebase/auth";
+import { 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  collection, 
+  query, 
+  serverTimestamp, 
+  orderBy 
+} from "firebase/firestore";
+import { auth, db } from "./firebase";
 import { Sun, Moon, LayoutDashboard, Send, BarChart2, Settings, Zap, Facebook, Instagram, Twitter, Linkedin, Cloud, MessageSquare, LogIn, X, Clock, Image, Upload, Menu, Phone, CheckCircle, AlertTriangle, ArrowLeft, ArrowRight, ThumbsUp, MessageSquare as CommentIcon, Share2, TrendingUp, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 // --- GLOBAL FIREBASE VARIABLE SETUP (MANDATORY) ---
@@ -57,49 +69,32 @@ const INTEREST_FIELDS = [
  * Custom hook for Firebase Initialization and Authentication
  */
 const useFirebase = () => {
-  const [db, setDb] = useState(null);
-  const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    try {
-      const app = initializeApp(firebaseConfig);
-      const firestore = getFirestore(app);
-      const authService = getAuth(app);
-
-      setDb(firestore);
-      setAuth(authService);
-
-      const unsubscribe = onAuthStateChanged(authService, async (user) => {
-        if (user) {
-          setUserId(user.uid);
-        } else {
-          // Attempt sign in with custom token or anonymously
-          try {
-            if (initialAuthToken) {
-              await signInWithCustomToken(authService, initialAuthToken);
-            } else {
-              await signInAnonymously(authService);
-            }
-          } catch (error) {
-            console.error("Firebase Auth Error:", error);
-            // Fallback for environments where auth isn't available
-            setUserId(crypto.randomUUID());
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        try {
+          if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+            await signInAnonymously(auth);
           }
+        } catch (e) {
+          console.error("Auth error:", e);
+          setUserId(crypto.randomUUID());
         }
-      });
-      return () => unsubscribe();
-    } catch (e) {
-      console.error("Firebase Initialization Failed:", e);
-      // Fallback for environments without Firebase config
-      setDb({});
-      setAuth({});
-      setUserId(crypto.randomUUID());
-    }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return { db, auth, userId, isAuthReady: !!userId };
 };
+
 
 /**
  * Saves or updates the user's interest preference to Firestore.
